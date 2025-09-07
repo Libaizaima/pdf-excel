@@ -1,0 +1,14 @@
+camelot-py[cv]
+tabula-py
+pdfplumber
+pandas
+openpyxl
+python-dateutil
+pdf2image
+pytesseract
+opencv-python
+ocrmypdf
+img2pdf
+fastapi
+uvicorn[standard]
+python-multipart

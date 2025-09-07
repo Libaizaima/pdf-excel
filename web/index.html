@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDF 转 Excel（交易流水）</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; padding: 32px; }
+      .card { max-width: 720px; margin: 0 auto; padding: 24px; border: 1px solid #eee; border-radius: 12px; }
+      h1 { margin-top: 0; font-size: 20px; }
+      .row { display: flex; gap: 12px; align-items: center; }
+      .status { margin-top: 12px; color: #666; }
+      button { padding: 10px 16px; border: 0; background: #0ea5e9; color: white; border-radius: 8px; cursor: pointer; }
+      button[disabled] { opacity: 0.6; cursor: not-allowed; }
+      input[type=file] { padding: 8px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
+      footer { margin-top: 24px; color: #999; font-size: 12px; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>PDF 转 Excel（交易流水）</h1>
+      <p>选择交易流水 PDF（微信/支付宝/银行等），点击转换；支持多选并分别下载为多个 XLSX。</p>
+      <form id="f">
+        <div class="row">
+          <input id="file" type="file" name="file" accept="application/pdf" multiple required />
+          <button id="btn" type="submit">转换</button>
+        </div>
+        <div id="status" class="status"></div>
+      </form>
+    </div>
+    <footer>服务运行中 · FastAPI</footer>
+
+    <script>
+      const form = document.getElementById('f');
+      const fileInput = document.getElementById('file');
+      const btn = document.getElementById('btn');
+      const statusEl = document.getElementById('status');
+
+      function setStatus(msg) { statusEl.textContent = msg || ''; }
+      function setBusy(b) { btn.disabled = b; fileInput.disabled = b; }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const files = Array.from(fileInput.files || []);
+        if (!files.length) return;
+        setBusy(true);
+        try {
+          if (files.length === 1) {
+            setStatus('正在上传并转换，请稍候…');
+            const fd = new FormData();
+            fd.append('file', files[0]);
+            const resp = await fetch('/convert', { method: 'POST', body: fd });
+            if (!resp.ok) {
+              const detail = await resp.json().catch(()=>({detail: resp.statusText}));
+              throw new Error(detail.detail || ('转换失败（HTTP ' + resp.status + '）'));
+            }
+            const blob = await resp.blob();
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = (files[0].name.replace(/\.pdf$/i, '') || 'result') + '.xlsx';
+            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+            setStatus('转换完成，已开始下载。');
+          } else {
+            setStatus(`已选择 ${files.length} 个文件，逐个转换并下载…`);
+            let ok = 0, fail = 0;
+            for (const f of files) {
+              try {
+                const fd = new FormData();
+                fd.append('file', f);
+                const resp = await fetch('/convert', { method: 'POST', body: fd });
+                if (!resp.ok) {
+                  const detail = await resp.json().catch(()=>({detail: resp.statusText}));
+                  throw new Error(detail.detail || ('HTTP ' + resp.status));
+                }
+                const blob = await resp.blob();
+                const a = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                a.href = url;
+                a.download = (f.name.replace(/\.pdf$/i, '') || 'result') + '.xlsx';
+                document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                ok++;
+              } catch (e) {
+                console.error('convert failed:', f.name, e);
+                fail++;
+              }
+              setStatus(`已完成 ${ok}/${files.length}，失败 ${fail}`);
+            }
+            setStatus(`全部完成：成功 ${ok}，失败 ${fail}`);
+          }
+        } catch (err) {
+          console.error(err);
+          setStatus(String(err.message || err));
+        } finally {
+          setBusy(false);
+        }
+      });
+    </script>
+  </body>
+  </html>

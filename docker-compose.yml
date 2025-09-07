@@ -1,0 +1,10 @@
+services:
+  pdf-excel:
+    image: pdf-excel:web
+    build: .
+    ports:
+      - "8003:8003"
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx2g
+    # 如需 CLI 模式，运行时覆盖 entrypoint：
+    # docker compose run --rm --entrypoint python pdf-excel /app/wechat_pdf2excel_ocr.py /data/in/a.pdf -o /data/out/a.xlsx
